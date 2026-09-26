@@ -1,0 +1,114 @@
+<section class="page page-wide">
+  <div class="page-head">
+    <div>
+      <a class="back" routerLink="/payments"><i class="ti ti-arrow-left" aria-hidden="true"></i>Payments received</a>
+      <h1>Record payment</h1>
+      <p class="muted">Enter what you received. Averqo applies it to the oldest invoices first, and you can adjust it.</p>
+    </div>
+  </div>
+
+  <div class="card form-card">
+    <div class="form-grid form-grid-4">
+      <label class="field span-2">
+        <span>Customer</span>
+        <select (change)="selectCustomer($any($event.target).value ? +$any($event.target).value : null)">
+          <option value="">Choose who paid</option>
+          @if (withBalance().length) {
+            <optgroup label="Customers who owe you">
+              @for (c of withBalance(); track c.id) { <option [value]="c.id" [selected]="c.id === selectedId()">{{ c.displayName }} ({{ c.outstanding | currency }})</option> }
+            </optgroup>
+          }
+          @if (others().length) {
+            <optgroup label="Other customers">
+              @for (c of others(); track c.id) { <option [value]="c.id" [selected]="c.id === selectedId()">{{ c.displayName }}</option> }
+            </optgroup>
+          }
+        </select>
+      </label>
+      <label class="field">
+        <span>Amount received (₹)</span>
+        <input type="number" min="0" step="0.01" [value]="amount() ?? ''" (input)="setAmount($any($event.target).value)" placeholder="0.00" />
+      </label>
+      <label class="field">
+        <span>Payment date</span>
+        <input type="date" [value]="date()" (input)="date.set($any($event.target).value)" />
+      </label>
+      <label class="field">
+        <span>Paid by</span>
+        <select (change)="mode.set($any($event.target).value)">
+          @for (m of meta()?.paymentModes ?? []; track m.value) { <option [value]="m.value" [selected]="m.value === mode()">{{ m.label }}</option> }
+        </select>
+      </label>
+      <label class="field">
+        <span>Reference</span>
+        <input type="text" [value]="reference()" (input)="reference.set($any($event.target).value)" placeholder="UTR, cheque, or UPI ref" />
+      </label>
+      <label class="field span-2">
+        <span>Notes</span>
+        <input type="text" [value]="notes()" (input)="notes.set($any($event.target).value)" placeholder="Optional, only visible to you" />
+      </label>
+    </div>
+  </div>
+
+  @if (selectedId()) {
+    <div class="card form-card">
+      <div class="card-head">
+        <h2>Apply to invoices</h2>
+        @if (open().length && amount()) {
+          <button type="button" class="btn btn-quiet" (click)="autoApply()"><i class="ti ti-wand" aria-hidden="true"></i>Apply oldest first</button>
+        }
+      </div>
+
+      @if (loadingInvoices()) {
+        <p class="muted">Loading open invoices…</p>
+      } @else if (!open().length) {
+        <p class="empty-inline">{{ customer()?.displayName }} has no unpaid sent invoices. Payments must be applied to an invoice; drafts need to be marked as sent first.</p>
+      } @else {
+        <div class="table-card flat">
+          <table class="table">
+            <thead><tr><th>Invoice</th><th>Date</th><th>Due</th><th class="num">Balance</th><th class="num apply-col">Payment</th></tr></thead>
+            <tbody>
+              @for (inv of open(); track inv.id) {
+                <tr>
+                  <td><a [routerLink]="['/invoices', inv.id]" class="strong-link" target="_blank">{{ inv.invoiceNumber }}</a></td>
+                  <td>{{ inv.issueDate | date: 'd MMM y' }}</td>
+                  <td>{{ inv.dueDate | date: 'd MMM y' }}<div class="sub" [class.text-danger]="dueText(inv.dueDate).includes('overdue')">{{ dueText(inv.dueDate) }}</div></td>
+                  <td class="num">
+                    {{ inv.balance | currency }}
+                    <div><button type="button" class="link-btn" (click)="payInFull(inv)">Pay in full</button></div>
+                  </td>
+                  <td class="num apply-col">
+                    <input type="number" min="0" step="0.01" [value]="applied()[inv.id] || ''" (input)="setApplied(inv.id, $any($event.target).value)"
+                           [class.invalid]="overApplied().includes(inv)" [attr.aria-label]="'Amount for ' + inv.invoiceNumber" placeholder="0.00" />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <dl class="totals apply-summary">
+          <dt>Amount received</dt><dd>{{ (amount() ?? 0) | currency }}</dd>
+          <dt>Applied to invoices</dt><dd>{{ appliedTotal() | currency }}</dd>
+          <dt class="grand">Left to apply</dt>
+          <dd class="grand" [class.text-danger]="remaining() !== 0" [class.text-success]="remaining() === 0 && appliedTotal() > 0">{{ remaining() | currency }}</dd>
+        </dl>
+        @if (overApplied().length) {
+          <p class="field-error">{{ overApplied()[0].invoiceNumber }} only has {{ overApplied()[0].balance | currency }} left to pay.</p>
+        } @else if (remaining() > 0 && paiseGt(amount(), openTotal())) {
+          <p class="field-error">This is more than {{ customer()?.displayName }} owes ({{ openTotal() | currency }}). Averqo can't hold advance payments yet, so record only what pays these invoices. If you overcharged, create a credit note instead.</p>
+        } @else if (remaining() !== 0 && appliedTotal() > 0) {
+          <p class="hint">Apply the full amount received before saving.</p>
+        }
+      }
+    </div>
+  }
+
+  @if (error()) {
+    <div class="alert" role="alert"><span>{{ error() }}</span></div>
+  }
+  <div class="form-actions sticky-actions">
+    <a class="btn" routerLink="/payments">Cancel</a>
+    <button type="button" class="btn btn-primary" [disabled]="!canSave()" (click)="save()">{{ saving() ? 'Saving…' : 'Save payment' }}</button>
+  </div>
+</section>

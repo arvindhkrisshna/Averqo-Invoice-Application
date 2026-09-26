@@ -1,0 +1,100 @@
+<section class="page page-wide">
+  @let kind = k();
+  <div class="page-head">
+    <div>
+      <a class="back" [routerLink]="cancelLink()"><i class="ti ti-arrow-left" aria-hidden="true"></i>{{ existing() ? existing()!.number : kind.plural }}</a>
+      <h1>{{ title() }}</h1>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else if (existing() && ['invoiced', 'void', 'cancelled'].includes(existing()!.status)) {
+    <div class="alert" role="alert"><span>This {{ kind.label.toLowerCase() }} is {{ existing()!.status }}, so it can't be edited.</span></div>
+  } @else {
+    @if (!orgReady()) {
+      <div class="alert alert-warn" role="status">
+        <span>Add your business name and state in Settings first. Your state decides whether CGST + SGST or IGST applies.</span>
+        <a class="btn" routerLink="/settings">Open settings</a>
+      </div>
+    }
+
+    <form [formGroup]="form" novalidate>
+      <div class="card form-card">
+        <div class="form-grid form-grid-4">
+          <div class="field span-2">
+            <label for="customer">Customer</label>
+            <app-customer-picker [control]="form.controls.customerId" [(customers)]="customers" [states]="meta()?.states ?? []"
+              [orgState]="org()?.stateCode ?? ''" [gstRegistered]="gstRegistered()" />
+          </div>
+          <label class="field"><span>{{ kind.dateLabel }}</span><input type="date" formControlName="issueDate" /></label>
+          <label class="field"><span>Reference</span><input type="text" formControlName="reference" [placeholder]="kind.type === 'challan' ? 'Vehicle no. or order' : 'Optional'" /></label>
+
+          @switch (kind.type) {
+            @case ('quote') {
+              <label class="field"><span>Valid until</span><input type="date" formControlName="expiryDate" /></label>
+            }
+            @case ('challan') {
+              <label class="field span-2">
+                <span>Challan type</span>
+                <select formControlName="challanType">
+                  @for (t of meta()?.challanTypes ?? []; track t.value) { <option [value]="t.value" [selected]="t.value === form.controls.challanType.value">{{ t.label }}</option> }
+                </select>
+              </label>
+            }
+            @case ('credit_note') {
+              <label class="field span-2">
+                <span>Against invoice</span>
+                <select formControlName="invoiceId">
+                  <option [ngValue]="null">No specific invoice</option>
+                  @for (i of invoices(); track i.id) {
+                    <option [ngValue]="i.id">{{ i.invoiceNumber }} · {{ i.issueDate }} · balance ₹{{ i.balance.toLocaleString('en-IN') }}</option>
+                  }
+                </select>
+              </label>
+              <label class="field">
+                <span>Reason</span>
+                <select formControlName="reason">
+                  @for (r of meta()?.creditReasons ?? []; track r.value) { <option [value]="r.value" [selected]="r.value === form.controls.reason.value">{{ r.label }}</option> }
+                </select>
+              </label>
+            }
+          }
+        </div>
+        @if (kind.type === 'credit_note' && linkedInvoice() && !existing()) {
+          <label class="check">
+            <input type="checkbox" formControlName="applyToInvoice" />
+            <span>Use this credit on {{ linkedInvoice()!.invoiceNumber }} straight away (reduces what the customer owes on it)</span>
+          </label>
+        }
+      </div>
+
+      <div class="card form-card">
+        <div class="card-head"><h2>Items</h2>
+          <span class="muted">{{ kind.type === 'credit_note' && invoiceId() ? 'Copied from the invoice. Remove or change lines so only what you are crediting is left.' : 'Type an item name to fill in its details, or type anything for a one-off line.' }}</span>
+        </div>
+        <app-lines-editor [lines]="lines" [(items)]="items" [interState]="interState()" [gstRegistered]="gstRegistered()" [rates]="rates()" />
+      </div>
+
+      <div class="card form-card">
+        <div class="form-grid">
+          <label class="field"><span>Notes for the customer</span><textarea formControlName="notes" rows="3"></textarea></label>
+          <label class="field"><span>Terms and conditions</span><textarea formControlName="termsText" rows="3"></textarea></label>
+        </div>
+      </div>
+
+      @if (error()) {
+        <div class="alert" role="alert"><span>{{ error() }}</span></div>
+      }
+      <div class="form-actions sticky-actions">
+        <a class="btn" [routerLink]="cancelLink()">Cancel</a>
+        @if (isDraft()) {
+          <button type="button" class="btn" [disabled]="!!saving() || !orgReady()" (click)="save(false)">{{ saving() === 'draft' ? 'Saving…' : 'Save as draft' }}</button>
+          <button type="button" class="btn btn-primary" [disabled]="!!saving() || !orgReady()" (click)="save(true)">{{ saving() === 'issue' ? 'Saving…' : kind.issueVerb }}</button>
+        } @else {
+          <button type="button" class="btn btn-primary" [disabled]="!!saving() || !orgReady()" (click)="save(true)">{{ saving() ? 'Saving…' : 'Save changes' }}</button>
+        }
+      </div>
+    </form>
+  }
+</section>

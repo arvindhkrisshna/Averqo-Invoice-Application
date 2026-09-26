@@ -1,0 +1,195 @@
+<section class="page page-wide">
+  @let kind = k();
+  @if (error()) {
+    <div class="alert" role="alert"><span>{{ error() }}</span><a class="btn" [routerLink]="kind.route">Back to {{ kind.plural.toLowerCase() }}</a></div>
+  } @else if (!doc() || !print()) {
+    <p class="muted">Loading…</p>
+  } @else {
+    @let d = doc()!;
+
+    <div class="page-head no-print">
+      <div>
+        <a class="back" [routerLink]="kind.route"><i class="ti ti-arrow-left" aria-hidden="true"></i>{{ kind.plural }}</a>
+        <h1>{{ d.number }} <span class="badge" [attr.data-tone]="statusInfo[status()].tone">{{ statusInfo[status()].label }}</span></h1>
+        <p class="muted">
+          <a [routerLink]="['/customers', d.customerId]">{{ d.customerName }}</a> · {{ d.total | currency }}
+          @if (d.type === 'quote' && d.expiryDate) { · valid until {{ d.expiryDate | date: 'd MMM y' }} }
+          @if (d.type === 'credit_note' && d.status === 'open') { · {{ d.balance | currency }} of credit left }
+          @if (d.invoiceId && d.type !== 'credit_note') { · <a [routerLink]="['/invoices', d.invoiceId]">Invoiced as {{ d.invoiceNumber }}</a> }
+          @if (d.invoiceId && d.type === 'credit_note') { · against <a [routerLink]="['/invoices', d.invoiceId]">{{ d.invoiceNumber }}</a> }
+        </p>
+      </div>
+      <div class="head-actions">
+        @if (editable()) {
+          <a class="btn" [routerLink]="[kind.route, d.id, 'edit']"><i class="ti ti-pencil" aria-hidden="true"></i>Edit</a>
+        }
+        <a class="btn" [href]="'/api/' + kind.path + '/' + d.id + '/pdf?download=1'" [attr.download]="d.number + '.pdf'"><i class="ti ti-download" aria-hidden="true"></i>PDF</a>
+        <div class="menu-wrap">
+          <button type="button" class="btn" (click)="menuOpen.set(!menuOpen())" [attr.aria-expanded]="menuOpen()" aria-label="More actions">
+            <i class="ti ti-dots" aria-hidden="true"></i>
+          </button>
+          @if (menuOpen()) {
+            <div class="menu" role="menu">
+              <button type="button" role="menuitem" (click)="openSend('whatsapp')"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i>Send on WhatsApp</button>
+              <button type="button" role="menuitem" (click)="printPage()"><i class="ti ti-printer" aria-hidden="true"></i>Print</button>
+              @for (m of moves(); track m) {
+                <button type="button" role="menuitem" [class.text-danger]="m === 'void' || m === 'cancelled'" (click)="move(m)">
+                  <i class="ti ti-{{ m === 'accepted' ? 'circle-check' : m === 'declined' ? 'circle-x' : m === 'void' || m === 'cancelled' ? 'ban' : 'check' }}" aria-hidden="true"></i>{{ moveLabel[m] }}
+                </button>
+              }
+              <a role="menuitem" [routerLink]="kind.route + '/new'" [queryParams]="{ from: d.id }"><i class="ti ti-copy" aria-hidden="true"></i>Duplicate</a>
+              @if (d.applied + d.refunded === 0) {
+                <button type="button" role="menuitem" class="text-danger" (click)="remove()"><i class="ti ti-trash" aria-hidden="true"></i>Delete</button>
+              }
+            </div>
+          }
+        </div>
+        @if (d.status !== 'void' && d.status !== 'cancelled') {
+          <button type="button" class="btn" [class.btn-primary]="d.status === 'draft'" (click)="openSend('email')"><i class="ti ti-send" aria-hidden="true"></i>Send</button>
+        }
+        @if (canConvert()) {
+          <button type="button" class="btn btn-primary" [disabled]="busy()" (click)="convert()"><i class="ti ti-file-invoice" aria-hidden="true"></i>Convert to invoice</button>
+        }
+        @if (d.type === 'credit_note' && d.status === 'open' && d.balance > 0) {
+          <button type="button" class="btn" (click)="openRefund()"><i class="ti ti-cash" aria-hidden="true"></i>Refund</button>
+          <button type="button" class="btn btn-primary" (click)="openApply()"><i class="ti ti-receipt-refund" aria-hidden="true"></i>Use on invoices</button>
+        }
+      </div>
+    </div>
+
+    @if (d.status === 'draft') {
+      <div class="alert alert-info no-print" role="status">
+        <span>This is a draft. {{ d.type === 'quote' ? 'Send it and it is marked as sent automatically.' : 'Issue it or send it to make it final.' }}
+          @if (d.type === 'credit_note') { Credit can be used once it's issued. }</span>
+        @if (d.type !== 'quote') { <button type="button" class="btn" (click)="move('open')">Issue now</button> }
+      </div>
+    }
+    @if (status() === 'expired') {
+      <div class="alert alert-warn no-print" role="status"><span>This quote's validity date has passed. You can still convert it, or duplicate it with new dates.</span></div>
+    }
+
+    <app-doc-view [doc]="print()!" />
+
+    <div class="detail-grid no-print">
+      @if (d.type === 'credit_note') {
+        <div class="card">
+          <div class="card-head"><h2>How this credit was used</h2></div>
+          @if (!d.allocations?.length && !d.refunds?.length) {
+            <p class="empty-inline">Not used yet. Use it on the customer's invoices, or record a refund.</p>
+          } @else {
+            <ul class="rows">
+              @for (a of d.allocations; track a.id) {
+                <li><div class="row-static">
+                  <span class="row-main"><a [routerLink]="['/invoices', a.invoiceId]"><strong>{{ a.invoiceNumber }}</strong></a> <span class="muted">used on {{ a.appliedOn | date: 'd MMM y' }}</span></span>
+                  <span class="num">{{ a.amount | currency }}</span>
+                  <button type="button" class="icon-btn" (click)="removeAllocation(a.id, a.invoiceNumber)" [attr.aria-label]="'Remove credit from ' + a.invoiceNumber"><i class="ti ti-x" aria-hidden="true"></i></button>
+                </div></li>
+              }
+              @for (r of d.refunds; track r.id) {
+                <li><div class="row-static">
+                  <span class="row-main"><strong>Refund</strong> <span class="muted">{{ modeLabel[r.mode] }}, {{ r.refundDate | date: 'd MMM y' }}@if (r.reference) { · {{ r.reference }} }</span></span>
+                  <span class="num">{{ r.amount | currency }}</span>
+                  <button type="button" class="icon-btn" (click)="removeRefund(r.id)" aria-label="Remove refund"><i class="ti ti-x" aria-hidden="true"></i></button>
+                </div></li>
+              }
+            </ul>
+          }
+          <dl class="mini-totals">
+            <dt>Credit note total</dt><dd>{{ d.total | currency }}</dd>
+            <dt>Used on invoices</dt><dd>{{ d.applied | currency }}</dd>
+            <dt>Refunded</dt><dd>{{ d.refunded | currency }}</dd>
+            <dt class="grand">Credit left</dt><dd class="grand">{{ (d.status === 'open' ? d.balance : 0) | currency }}</dd>
+          </dl>
+        </div>
+      }
+      <app-activity-list [entries]="d.activity ?? []" />
+    </div>
+  }
+</section>
+
+@if (sendCtx()) {
+  <app-send-dialog [ctx]="sendCtx()!" [startTab]="sendTab()" (sent)="onSent($event)" (closed)="sendCtx.set(null)" />
+}
+
+@if (dialog() === 'apply') {
+  <div class="dialog-backdrop" (click)="dialog.set('')">
+    <div class="dialog dialog-wide" role="dialog" aria-labelledby="apply-title" (click)="$event.stopPropagation()">
+      <div class="dialog-head">
+        <h2 id="apply-title">Use {{ doc()!.number }} on invoices</h2>
+        <button type="button" class="icon-btn" aria-label="Close" (click)="dialog.set('')"><i class="ti ti-x" aria-hidden="true"></i></button>
+      </div>
+      @if (!openInvoices().length) {
+        <p class="empty-inline">{{ doc()!.customerName }} has no unpaid sent invoices. You can record a refund instead.</p>
+      } @else {
+        <p class="muted">{{ doc()!.balance | currency }} of credit available. Amounts are filled in oldest invoice first.</p>
+        <ul class="rows alloc-rows">
+          @for (i of openInvoices(); track i.id) {
+            <li><div class="row-static">
+              <span class="row-main"><strong>{{ i.invoiceNumber }}</strong> <span class="muted">due {{ i.dueDate | date: 'd MMM y' }} · {{ i.balance | currency }} to pay</span></span>
+              <input type="number" min="0" step="0.01" [max]="i.balance" [(ngModel)]="i.use" [attr.aria-label]="'Credit to use on ' + i.invoiceNumber" />
+            </div></li>
+          }
+        </ul>
+        <div class="form-grid">
+          <label class="field"><span>Date</span><input type="date" [(ngModel)]="applyDate" /></label>
+          <div class="field"><span>Total to use</span><strong class="big-num">{{ applyTotal() | currency }}</strong></div>
+        </div>
+      }
+      @if (dialogError()) { <div class="alert" role="alert"><span>{{ dialogError() }}</span></div> }
+      <div class="form-actions">
+        <button type="button" class="btn" (click)="dialog.set('')">Cancel</button>
+        @if (openInvoices().length) { <button type="button" class="btn btn-primary" (click)="apply()">Use credit</button> }
+      </div>
+    </div>
+  </div>
+}
+
+@if (dialog() === 'refund') {
+  <div class="dialog-backdrop" (click)="dialog.set('')">
+    <div class="dialog" role="dialog" aria-labelledby="refund-title" (click)="$event.stopPropagation()">
+      <div class="dialog-head">
+        <h2 id="refund-title">Record a refund</h2>
+        <button type="button" class="icon-btn" aria-label="Close" (click)="dialog.set('')"><i class="ti ti-x" aria-hidden="true"></i></button>
+      </div>
+      <p class="muted">Money you paid back to {{ doc()!.customerName }} from this credit note.</p>
+      <div class="form-grid">
+        <label class="field"><span>Amount (₹)</span><input type="number" min="0" step="0.01" [(ngModel)]="refund.amount" /></label>
+        <label class="field"><span>Date</span><input type="date" [(ngModel)]="refund.refundDate" /></label>
+        <label class="field">
+          <span>Paid by</span>
+          <select [(ngModel)]="refund.mode">
+            @for (m of meta()?.paymentModes ?? []; track m.value) { <option [value]="m.value">{{ m.label }}</option> }
+          </select>
+        </label>
+        <label class="field"><span>Reference</span><input type="text" [(ngModel)]="refund.reference" placeholder="UTR or cheque no." /></label>
+      </div>
+      @if (dialogError()) { <div class="alert" role="alert"><span>{{ dialogError() }}</span></div> }
+      <div class="form-actions">
+        <button type="button" class="btn" (click)="dialog.set('')">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="saveRefund()">Save refund</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (dialog() === 'convert') {
+  <div class="dialog-backdrop" (click)="dialog.set('')">
+    <div class="dialog" role="dialog" aria-labelledby="convert-title" (click)="$event.stopPropagation()">
+      <div class="dialog-head">
+        <h2 id="convert-title">Convert to one invoice</h2>
+        <button type="button" class="icon-btn" aria-label="Close" (click)="dialog.set('')"><i class="ti ti-x" aria-hidden="true"></i></button>
+      </div>
+      <p class="muted">{{ doc()!.customerName }} has other open challans. Tick any to bill together on the same invoice.</p>
+      <ul class="check-list">
+        <li><label class="check"><input type="checkbox" checked disabled /><span><strong>{{ doc()!.number }}</strong> · {{ doc()!.issueDate | date: 'd MMM y' }} · {{ doc()!.total | currency }}</span></label></li>
+        @for (c of otherChallans(); track c.id) {
+          <li><label class="check"><input type="checkbox" [(ngModel)]="c.pick" /><span><strong>{{ c.number }}</strong> · {{ c.issueDate | date: 'd MMM y' }} · {{ c.total | currency }}</span></label></li>
+        }
+      </ul>
+      <div class="form-actions">
+        <button type="button" class="btn" (click)="dialog.set('')">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="convertChallans(pickedChallanIds())">Create invoice</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,34 @@
+services:
+  # Your Codespace: the editor and terminals run inside this container.
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: invoice
+      DB_PASSWORD: invoicepass
+      DB_NAME: invoicedb
+      NG_CLI_ANALYTICS: "false"
+    depends_on:
+      - db
+
+  # MySQL 8.4. Creates the tables from db/schema.sql on first start.
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: invoicedb
+      MYSQL_USER: invoice
+      MYSQL_PASSWORD: invoicepass
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+volumes:
+  mysql-data:

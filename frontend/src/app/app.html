@@ -1,0 +1,95 @@
+@if (auth.user()) {
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="shell" [class.nav-open]="navOpen()">
+  <aside class="sidebar" aria-label="Main navigation">
+    <a class="brand" routerLink="/home">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span class="brand-name">Averqo</span>
+    </a>
+
+    <nav class="nav">
+      @for (link of top; track link.path) {
+        <a class="nav-link" [routerLink]="link.path" routerLinkActive="active">
+          <i class="ti ti-{{ link.icon }}" aria-hidden="true"></i>{{ link.label }}
+        </a>
+      }
+      @for (group of groups; track group.title) {
+        <p class="nav-group">{{ group.title }}</p>
+        @for (link of group.links; track link.path) {
+          <a class="nav-link" [routerLink]="link.path" routerLinkActive="active">
+            <i class="ti ti-{{ link.icon }}" aria-hidden="true"></i>{{ link.label }}
+          </a>
+        }
+      }
+    </nav>
+
+    <a class="nav-link nav-settings" routerLink="/settings" routerLinkActive="active">
+      <i class="ti ti-settings" aria-hidden="true"></i>Settings
+    </a>
+  </aside>
+
+  <button type="button" class="scrim" aria-label="Close menu" (click)="navOpen.set(false)"></button>
+
+  <div class="main-col">
+    <header class="topbar">
+      <button type="button" class="icon-btn menu-btn" aria-label="Open menu" (click)="navOpen.set(true)">
+        <i class="ti ti-menu-2" aria-hidden="true"></i>
+      </button>
+      <button type="button" class="search-trigger" (click)="paletteOpen.set(true)">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <span>Search or create anything</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+      <span class="topbar-org">{{ api.org()?.name || 'Your business' }}</span>
+      @if (timer.running(); as t) {
+        <div class="timer-chip" role="status">
+          <a routerLink="/time-tracking" [title]="'Timer running: ' + t.projectName">
+            <span class="timer-dot" aria-hidden="true"></span>
+            <span class="mono">{{ clock(timer.elapsed()) }}</span>
+            <span class="timer-project hide-sm">{{ t.projectName }}</span>
+          </a>
+          <button type="button" class="icon-btn" (click)="stopTimer()" aria-label="Stop timer" title="Stop timer"><i class="ti ti-player-stop-filled" aria-hidden="true"></i></button>
+        </div>
+      }
+      <a class="btn btn-primary" routerLink="/invoices/new">
+        <i class="ti ti-plus" aria-hidden="true"></i><span class="hide-sm">New invoice</span>
+      </a>
+      @if (auth.user(); as u) {
+        <div class="user-menu">
+          <button type="button" class="avatar" (click)="userMenu.set(!userMenu())" [attr.aria-expanded]="userMenu()" aria-haspopup="menu" [attr.aria-label]="'Account: ' + u.name">{{ initials(u.name) }}</button>
+          @if (userMenu()) {
+            <button type="button" class="menu-dismiss" aria-hidden="true" tabindex="-1" (click)="userMenu.set(false)"></button>
+            <div class="menu user-dropdown" role="menu">
+              <div class="user-who"><strong>{{ u.name }}</strong><span class="sub">{{ u.email }}</span><span class="sub">{{ u.role === 'owner' ? 'Owner' : 'Staff' }}</span></div>
+              <a role="menuitem" routerLink="/settings" fragment="account"><i class="ti ti-key" aria-hidden="true"></i>Change password</a>
+              @if (auth.isOwner()) { <a role="menuitem" routerLink="/settings" fragment="team"><i class="ti ti-users-group" aria-hidden="true"></i>Team</a> }
+              <button type="button" role="menuitem" (click)="signOut()"><i class="ti ti-logout" aria-hidden="true"></i>Sign out</button>
+            </div>
+          }
+        </div>
+      }
+    </header>
+
+    <main id="main" class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+@if (paletteOpen()) {
+  <app-command-palette (closed)="paletteOpen.set(false)" />
+}
+} @else {
+  <main id="main" class="auth-main"><router-outlet /></main>
+}
+
+<div class="toasts" aria-live="polite">
+  @for (t of toasts.list(); track t.id) {
+    <div class="toast" [attr.data-tone]="t.tone">
+      <i class="ti" [class.ti-circle-check]="t.tone === 'success'" [class.ti-alert-circle]="t.tone === 'error'" aria-hidden="true"></i>
+      <span>{{ t.text }}</span>
+      <button type="button" class="icon-btn" aria-label="Dismiss" (click)="toasts.dismiss(t.id)"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
+  }
+</div>

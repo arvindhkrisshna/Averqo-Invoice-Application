@@ -1,0 +1,90 @@
+<section class="page page-wide">
+  <div class="page-head">
+    <div>
+      <a class="back" [routerLink]="cancelLink()"><i class="ti ti-arrow-left" aria-hidden="true"></i>{{ existing() ? existing()!.invoiceNumber : 'Invoices' }}</a>
+      <h1>{{ title() }}</h1>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else if (existing()?.lifecycle === 'void') {
+    <div class="alert" role="alert"><span>Void invoices can't be edited. Duplicate it to make a new one.</span></div>
+  } @else {
+    @if (!orgReady()) {
+      <div class="alert alert-warn" role="status">
+        <span>Add your business name and state in Settings before saving invoices. Your state decides whether CGST + SGST or IGST applies.</span>
+        <a class="btn" routerLink="/settings">Open settings</a>
+      </div>
+    }
+
+    <form [formGroup]="form" novalidate>
+      <div class="card form-card">
+        <div class="form-grid form-grid-4">
+          <div class="field span-2">
+            <label for="customer">Customer</label>
+            <app-customer-picker [control]="form.controls.customerId" [(customers)]="customers" [states]="meta()?.states ?? []"
+              [orgState]="org()?.stateCode ?? ''" [gstRegistered]="gstRegistered()" />
+          </div>
+          <label class="field"><span>Invoice date</span><input type="date" formControlName="issueDate" /></label>
+          <label class="field"><span>Reference / PO number</span><input type="text" formControlName="reference" placeholder="Optional" /></label>
+          <label class="field">
+            <span>Payment terms</span>
+            <select formControlName="terms">
+              @for (o of termOptions; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+              <option value="custom">Custom date</option>
+            </select>
+          </label>
+          <label class="field"><span>Due date</span><input type="date" formControlName="dueDate" (input)="dueEdited()" /></label>
+        </div>
+      </div>
+
+      <div class="card form-card">
+        <div class="card-head"><h2>Items</h2><span class="muted">Type an item name to fill in its details, or type anything for a one-off line.</span></div>
+
+        @let offer = offered();
+        @if (offer.time.length || offer.expenses.length) {
+          <div class="unbilled-banner">
+            <div class="unbilled-head">
+              <i class="ti ti-clock-dollar" aria-hidden="true"></i>
+              <span><strong>{{ customer()?.displayName }}</strong> has unbilled work worth {{ offer.total | currency }}.</span>
+              <button type="button" class="btn btn-primary" (click)="addAllUnbilled()">Add all to invoice</button>
+            </div>
+            <ul>
+              @for (t of offer.time; track t.projectId) {
+                <li><span><i class="ti ti-clock-hour-4" aria-hidden="true"></i>{{ t.projectName }}: {{ t.hours }} hrs × {{ t.rate | currency }}
+                  <span class="sub">({{ t.from | date: 'd MMM' }} – {{ t.to | date: 'd MMM' }})</span></span>
+                  <strong>{{ t.amount | currency }}</strong><button type="button" class="link-btn" (click)="addTime(t)">Add</button></li>
+              }
+              @for (e of offer.expenses; track e.id) {
+                <li><span><i class="ti ti-receipt" aria-hidden="true"></i>{{ e.description }}</span>
+                  <strong>{{ e.amount | currency }}</strong><button type="button" class="link-btn" (click)="addExpense(e)">Add</button></li>
+              }
+            </ul>
+          </div>
+        }
+        <app-lines-editor [lines]="lines" [(items)]="items" [interState]="interState()" [gstRegistered]="gstRegistered()" [rates]="rates()" />
+      </div>
+
+      <div class="card form-card">
+        <div class="form-grid">
+          <label class="field"><span>Notes for the customer</span><textarea formControlName="notes" rows="3"></textarea></label>
+          <label class="field"><span>Terms and conditions</span><textarea formControlName="termsText" rows="3"></textarea></label>
+        </div>
+      </div>
+
+      @if (error()) {
+        <div class="alert" role="alert"><span>{{ error() }}</span></div>
+      }
+      <div class="form-actions sticky-actions">
+        <a class="btn" [routerLink]="cancelLink()">Cancel</a>
+        @if (isDraft()) {
+          <button type="button" class="btn" [disabled]="!!saving() || !orgReady()" (click)="save('draft')">{{ saving() === 'draft' ? 'Saving…' : 'Save as draft' }}</button>
+          <button type="button" class="btn btn-primary" [disabled]="!!saving() || !orgReady()" (click)="save('sent')">{{ saving() === 'sent' ? 'Saving…' : 'Save and mark as sent' }}</button>
+        } @else {
+          <button type="button" class="btn btn-primary" [disabled]="!!saving() || !orgReady()" (click)="save('sent')">{{ saving() ? 'Saving…' : 'Save changes' }}</button>
+        }
+      </div>
+    </form>
+  }
+</section>

@@ -1,0 +1,152 @@
+<section class="page">
+  <div class="page-head">
+    <div>
+      <h1>Settings</h1>
+      <p class="muted">These details appear on your invoices and receipts.</p>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <p class="muted">Loading…</p>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <div class="card form-card">
+        <h2>Business profile</h2>
+        <div class="form-grid">
+          <label class="field span-2">
+            <span>Business name</span>
+            <input type="text" formControlName="name" placeholder="Nila Design Studio" autocomplete="organization" />
+          </label>
+
+          <div class="field span-2">
+            <span>GST registration</span>
+            <div class="segmented" role="radiogroup" aria-label="GST registration">
+              <label><input type="radio" formControlName="gstRegistered" [value]="true" /> Registered for GST</label>
+              <label><input type="radio" formControlName="gstRegistered" [value]="false" /> Not registered</label>
+            </div>
+            @if (!registered()) {
+              <small class="hint">Invoices won't include GST. Switch this on once you have a GSTIN.</small>
+            }
+          </div>
+
+          @if (registered()) {
+            <label class="field">
+              <span>GSTIN</span>
+              <input type="text" formControlName="gstin" placeholder="33ABCDE1234F1Z5" maxlength="15" class="mono upper"
+                     [class.invalid]="gstinState() === 'invalid'" />
+              @if (gstinState() === 'invalid') {
+                <small class="field-error">This GSTIN doesn't look right. Check each character.</small>
+              } @else if (gstinState() === 'valid') {
+                <small class="hint text-success"><i class="ti ti-circle-check" aria-hidden="true"></i> Valid GSTIN. State filled in.</small>
+              }
+            </label>
+          }
+          <label class="field">
+            <span>State</span>
+            <select formControlName="stateCode">
+              <option value="" disabled>Choose your state</option>
+              @for (s of states(); track s.code) {
+                <option [value]="s.code">{{ s.name }}</option>
+              }
+            </select>
+            <small class="hint">Decides whether CGST + SGST or IGST applies to each invoice.</small>
+          </label>
+
+          <label class="field span-2">
+            <span>Address</span>
+            <textarea formControlName="address" rows="2" placeholder="Building, street, area"></textarea>
+          </label>
+          <label class="field"><span>City</span><input type="text" formControlName="city" /></label>
+          <label class="field"><span>PIN code</span><input type="text" formControlName="pincode" inputmode="numeric" maxlength="6" /></label>
+          <label class="field"><span>Email</span><input type="email" formControlName="email" placeholder="accounts@yourbusiness.in" /></label>
+          <label class="field"><span>Phone</span><input type="tel" formControlName="phone" /></label>
+        </div>
+      </div>
+
+      <div class="card form-card">
+        <h2>Bank and UPI</h2>
+        <p class="muted">Printed at the bottom of invoices so customers know how to pay you.</p>
+        <div class="form-grid">
+          <label class="field"><span>Bank name</span><input type="text" formControlName="bankName" /></label>
+          <label class="field"><span>Account number</span><input type="text" formControlName="bankAccountNumber" class="mono" /></label>
+          <label class="field"><span>IFSC</span><input type="text" formControlName="bankIfsc" maxlength="11" class="mono upper" placeholder="HDFC0001234" /></label>
+          <label class="field"><span>UPI ID</span><input type="text" formControlName="upiId" placeholder="yourbusiness@okhdfcbank" /></label>
+        </div>
+      </div>
+
+      <div class="card form-card">
+        <h2>GST filing</h2>
+        <div class="form-grid">
+          <div class="field span-2">
+            <span>How often you file GSTR-1 and GSTR-3B</span>
+            <div class="segmented" role="radiogroup" aria-label="GST filing frequency">
+              <label><input type="radio" formControlName="gstFilingFrequency" value="monthly" /> Monthly</label>
+              <label><input type="radio" formControlName="gstFilingFrequency" value="quarterly" /> Quarterly (QRMP scheme)</label>
+            </div>
+            <small class="hint">Sets the periods shown on the GST filing page. Businesses with turnover up to ₹5 crore can choose quarterly filing on the GST portal.</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="card form-card">
+        <h2>Numbering and defaults</h2>
+        <div class="form-grid">
+          <label class="field"><span>Invoice prefix</span><input type="text" formControlName="invoicePrefix" maxlength="10" /></label>
+          <label class="field"><span>Next invoice number</span><input type="number" formControlName="nextInvoiceNumber" min="1" /></label>
+          <label class="field"><span>Payment prefix</span><input type="text" formControlName="paymentPrefix" maxlength="10" /></label>
+          <label class="field"><span>Next payment number</span><input type="number" formControlName="nextPaymentNumber" min="1" /></label>
+          <label class="field"><span>Quote prefix</span><input type="text" formControlName="quotePrefix" maxlength="10" /></label>
+          <label class="field"><span>Next quote number</span><input type="number" formControlName="nextQuoteNumber" min="1" /></label>
+          <label class="field"><span>Delivery challan prefix</span><input type="text" formControlName="challanPrefix" maxlength="10" /></label>
+          <label class="field"><span>Next challan number</span><input type="number" formControlName="nextChallanNumber" min="1" /></label>
+          <label class="field"><span>Credit note prefix</span><input type="text" formControlName="creditPrefix" maxlength="10" /></label>
+          <label class="field"><span>Next credit note number</span><input type="number" formControlName="nextCreditNumber" min="1" /></label>
+          <label class="field"><span>Default payment terms (days)</span><input type="number" formControlName="paymentTermsDays" min="0" max="365" /></label>
+          <label class="field"><span>Quotes are valid for (days)</span><input type="number" formControlName="quoteValidityDays" min="0" max="365" /></label>
+          <label class="field span-2"><span>Default notes on invoices</span><textarea formControlName="invoiceNotes" rows="2"></textarea></label>
+          <label class="field span-2"><span>Default terms and conditions</span><textarea formControlName="invoiceTerms" rows="3" placeholder="Payment due within 15 days. Late payments may attract interest."></textarea></label>
+          <label class="field span-2"><span>Default notes on quotes</span><textarea formControlName="quoteNotes" rows="2"></textarea></label>
+          <label class="field span-2"><span>Default terms on quotes</span><textarea formControlName="quoteTerms" rows="2" placeholder="Prices valid for 15 days. 50% advance to start work."></textarea></label>
+        </div>
+      </div>
+
+      <div class="card form-card" id="email">
+        <h2>Email sending</h2>
+        <p class="muted">Averqo sends invoices and quotes from your own email account, with the PDF attached. It's free: it uses your email provider's SMTP server, like any email app.</p>
+        <div class="help-box">
+          <strong>Using Gmail?</strong> Turn on 2-step verification for your Google account, then create an App Password at
+          <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a> and paste it below. Your normal Gmail password won't work.
+          <button type="button" class="btn btn-quiet" (click)="useGmail()">Fill in Gmail settings</button>
+        </div>
+        <div class="form-grid">
+          <label class="field"><span>SMTP server</span><input type="text" formControlName="smtpHost" placeholder="smtp.gmail.com" autocomplete="off" /></label>
+          <label class="field"><span>Port</span><input type="number" formControlName="smtpPort" placeholder="587" /><small class="hint">587 (STARTTLS) or 465 (SSL)</small></label>
+          <label class="field"><span>Username</span><input type="text" formControlName="smtpUsername" placeholder="you@gmail.com" autocomplete="off" /></label>
+          <label class="field">
+            <span>Password or App Password</span>
+            <input type="password" formControlName="smtpPassword" [placeholder]="passwordSet() ? 'Saved. Leave empty to keep it.' : ''" autocomplete="new-password" />
+          </label>
+          <label class="field"><span>Send from (email)</span><input type="email" formControlName="smtpFromEmail" placeholder="accounts@yourbusiness.in" /></label>
+          <label class="field"><span>Send from (name)</span><input type="text" formControlName="smtpFromName" [placeholder]="form.controls.name.value || 'Your business name'" /></label>
+        </div>
+        <p class="hint">The password is stored in your Codespace's database and is never shown again. To stop sending, clear the SMTP server and save.</p>
+        @if (passwordSet() || form.controls.smtpHost.value) {
+          <div class="input-with-btn test-email">
+            <input type="email" [(ngModel)]="testTo" [ngModelOptions]="{ standalone: true }" placeholder="Send a test to…" aria-label="Test email address" />
+            <button type="button" class="btn" [disabled]="testing() || form.dirty" (click)="sendTest()">{{ testing() ? 'Sending…' : 'Send test email' }}</button>
+          </div>
+          @if (form.dirty) { <small class="hint">Save your settings first, then send a test.</small> }
+        }
+      </div>
+
+      @if (error()) {
+        <div class="alert" role="alert"><span>{{ error() }}</span></div>
+      }
+      <div class="form-actions sticky-actions">
+        @if (!auth.isOwner()) { <span class="sub">Only the account owner can change these settings.</span> }
+        <button type="submit" class="btn btn-primary" [disabled]="saving() || !auth.isOwner()">{{ saving() ? 'Saving…' : 'Save settings' }}</button>
+      </div>
+    </form>
+    <app-account-settings />
+  }
+</section>

@@ -1,0 +1,130 @@
+<section class="page page-wide">
+  <div class="page-head">
+    <div>
+      <h1>{{ greeting }}{{ data()?.setup?.orgName ? ', ' + data()!.setup.orgName : '' }}</h1>
+      <p class="muted">Here's where your money stands today.</p>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="alert" role="alert"><span>{{ error() }}</span><button type="button" class="btn" (click)="load()">Try again</button></div>
+  } @else if (!data()) {
+    <p class="muted">Loading…</p>
+  } @else {
+    @let d = data()!;
+
+    @if (setupDone() < 6) {
+      <a class="setup-banner" routerLink="/getting-started">
+        <div>
+          <strong>Finish setting up Averqo</strong>
+          <span class="muted">{{ setupDone() }} of 6 steps done. Next up: {{ nextStep() }}.</span>
+        </div>
+        <div class="progress" aria-hidden="true"><span [style.width.%]="(setupDone() / 6) * 100"></span></div>
+        <i class="ti ti-chevron-right" aria-hidden="true"></i>
+      </a>
+    }
+
+    <div class="tiles">
+      <a class="tile" routerLink="/invoices" [queryParams]="{ status: 'unpaid' }">
+        <span class="tile-label">You're owed</span>
+        <span class="tile-value">{{ d.receivables | currency }}</span>
+        <span class="tile-sub">{{ d.dueThisWeek | currency }} due in the next 7 days</span>
+      </a>
+      <a class="tile" routerLink="/invoices" [queryParams]="{ status: 'overdue' }">
+        <span class="tile-label">Overdue</span>
+        <span class="tile-value" [class.text-danger]="d.overdue > 0">{{ d.overdue | currency }}</span>
+        <span class="tile-sub">{{ d.overdueInvoices.length ? 'Follow up on these first' : 'Nothing overdue' }}</span>
+      </a>
+      <a class="tile" routerLink="/payments">
+        <span class="tile-label">Received this month</span>
+        <span class="tile-value text-success">{{ d.receivedThisMonth | currency }}</span>
+        <span class="tile-sub">Across all payment methods</span>
+      </a>
+      <div class="tile">
+        <span class="tile-label">Invoiced this month</span>
+        <span class="tile-value">{{ d.invoicedThisMonth | currency }}</span>
+        <span class="tile-sub">Sent invoices, including GST</span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><h2>Needs your attention</h2></div>
+        @if (attentionCount() === 0) {
+          <p class="empty-inline"><i class="ti ti-circle-check text-success" aria-hidden="true"></i> You're all caught up.</p>
+        } @else {
+          <ul class="rows">
+            @for (i of d.overdueInvoices; track i.id) {
+              <li><a [routerLink]="['/invoices', i.id]">
+                <span class="row-main"><strong>{{ i.invoiceNumber }}</strong> {{ i.customerName }}</span>
+                <span class="row-end"><span class="num">{{ i.amount | currency }}</span><span class="badge" data-tone="overdue">{{ dueText(i.dueDate) }}</span></span>
+              </a></li>
+            }
+            @for (i of d.dueSoonInvoices; track i.id) {
+              <li><a [routerLink]="['/invoices', i.id]">
+                <span class="row-main"><strong>{{ i.invoiceNumber }}</strong> {{ i.customerName }}</span>
+                <span class="row-end"><span class="num">{{ i.amount | currency }}</span><span class="badge" data-tone="partial">{{ dueText(i.dueDate) }}</span></span>
+              </a></li>
+            }
+            @for (i of d.draftInvoices; track i.id) {
+              <li><a [routerLink]="['/invoices', i.id]">
+                <span class="row-main"><strong>{{ i.invoiceNumber }}</strong> {{ i.customerName }}</span>
+                <span class="row-end"><span class="num">{{ i.amount | currency }}</span><span class="badge" data-tone="draft">Not sent yet</span></span>
+              </a></li>
+            }
+          </ul>
+          @if (d.draftCount > d.draftInvoices.length) {
+            <a class="card-foot" routerLink="/invoices" [queryParams]="{ status: 'draft' }">See all {{ d.draftCount }} drafts</a>
+          }
+        }
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Last 6 months</h2>
+          <div class="legend"><span class="key key-invoiced"></span>Invoiced <span class="key key-received"></span>Received</div>
+        </div>
+        <div class="bars" role="img" aria-label="Invoiced and received amounts for the last six months">
+          @for (m of chart(); track m.label) {
+            <div class="bar-group">
+              <div class="bar-pair">
+                <span class="bar bar-invoiced" [style.height.%]="m.hInvoiced" [title]="'Invoiced ' + (m.invoiced | currency)"></span>
+                <span class="bar bar-received" [style.height.%]="m.hReceived" [title]="'Received ' + (m.received | currency)"></span>
+              </div>
+              <span class="bar-label">{{ m.label }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>How long you've been waiting</h2></div>
+        <ul class="aging">
+          @for (a of d.aging; track a.label; let i = $index) {
+            <li>
+              <span class="aging-label">{{ a.label }}</span>
+              <span class="aging-track"><span class="aging-fill" [attr.data-level]="i" [style.width.%]="(a.amount / agingMax()) * 100"></span></span>
+              <span class="num">{{ a.amount | currency }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Recent payments</h2><a routerLink="/payments">View all</a></div>
+        @if (d.recentPayments.length === 0) {
+          <p class="empty-inline">Payments you record will appear here.</p>
+        } @else {
+          <ul class="rows">
+            @for (p of d.recentPayments; track p.id) {
+              <li><a [routerLink]="['/payments', p.id]">
+                <span class="row-main"><strong>{{ p.customerName }}</strong> <span class="muted">{{ modeLabel[p.mode] }}, {{ p.paymentDate | date: 'd MMM' }}</span></span>
+                <span class="num text-success">+{{ p.amount | currency }}</span>
+              </a></li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
+  }
+</section>

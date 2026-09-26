@@ -1,0 +1,40 @@
+# Runs Averqo and MySQL on a server (a VPS or any Docker host).
+# 1. Copy .env.example to .env and change every password in it.
+# 2. docker compose -f docker-compose.prod.yml up -d --build
+# 3. Put HTTPS in front (for example Caddy or Nginx) and open https://your-domain
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-averqo}
+      MYSQL_USER: ${DB_USER:-averqo}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - averqo-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      retries: 12
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-averqo}
+      DB_USER: ${DB_USER:-averqo}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SETUP_CODE: ${SETUP_CODE:?Set SETUP_CODE in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+    ports:
+      - "127.0.0.1:8080:8080"   # only reachable through your HTTPS proxy
+
+volumes:
+  averqo-db:

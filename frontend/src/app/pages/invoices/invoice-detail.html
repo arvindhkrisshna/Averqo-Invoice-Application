@@ -1,0 +1,112 @@
+<section class="page page-wide">
+  @if (error()) {
+    <div class="alert" role="alert"><span>{{ error() }}</span><a class="btn" routerLink="/invoices">Back to invoices</a></div>
+  } @else if (!invoice() || !print()) {
+    <p class="muted">Loading…</p>
+  } @else {
+    @let inv = invoice()!;
+
+    <div class="page-head no-print">
+      <div>
+        <a class="back" routerLink="/invoices"><i class="ti ti-arrow-left" aria-hidden="true"></i>Invoices</a>
+        <h1>{{ inv.invoiceNumber }} <app-status-badge [invoice]="inv" /></h1>
+        <p class="muted">
+          <a [routerLink]="['/customers', inv.customerId]">{{ inv.customerName }}</a>
+          @if (inv.lifecycle === 'sent' && inv.balance > 0) { · {{ inv.balance | currency }} due · {{ dueText(inv.dueDate) }} }
+          @if (status() === 'paid') { · Paid in full }
+          @if (inv.recurringId) { · <a [routerLink]="['/recurring-invoices', inv.recurringId]">From a recurring schedule</a> }
+        </p>
+      </div>
+      <div class="head-actions">
+        @if (inv.lifecycle !== 'void') {
+          <a class="btn" [routerLink]="['/invoices', inv.id, 'edit']"><i class="ti ti-pencil" aria-hidden="true"></i>Edit</a>
+        }
+        <a class="btn" [href]="'/api/invoices/' + inv.id + '/pdf?download=1'" [attr.download]="inv.invoiceNumber + '.pdf'"><i class="ti ti-download" aria-hidden="true"></i>PDF</a>
+        <div class="menu-wrap">
+          <button type="button" class="btn" (click)="menuOpen.set(!menuOpen())" [attr.aria-expanded]="menuOpen()" aria-label="More actions">
+            <i class="ti ti-dots" aria-hidden="true"></i>
+          </button>
+          @if (menuOpen()) {
+            <div class="menu" role="menu">
+              <button type="button" role="menuitem" (click)="openSend('whatsapp')"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i>Send on WhatsApp</button>
+              <button type="button" role="menuitem" (click)="printPage()"><i class="ti ti-printer" aria-hidden="true"></i>Print</button>
+              @if (inv.lifecycle === 'draft') {
+                <button type="button" role="menuitem" (click)="markSent()"><i class="ti ti-check" aria-hidden="true"></i>Mark as sent without sending</button>
+              }
+              <a role="menuitem" routerLink="/invoices/new" [queryParams]="{ from: inv.id }"><i class="ti ti-copy" aria-hidden="true"></i>Duplicate</a>
+              @if (inv.lifecycle === 'sent') {
+                <a role="menuitem" routerLink="/credit-notes/new" [queryParams]="{ invoiceId: inv.id }"><i class="ti ti-receipt-refund" aria-hidden="true"></i>Create credit note</a>
+              }
+              @if (inv.lifecycle === 'sent' && inv.paid + inv.credited === 0) {
+                <button type="button" role="menuitem" (click)="voidIt()"><i class="ti ti-ban" aria-hidden="true"></i>Void</button>
+              }
+              @if (inv.paid + inv.credited === 0) {
+                <button type="button" role="menuitem" class="text-danger" (click)="remove()"><i class="ti ti-trash" aria-hidden="true"></i>Delete</button>
+              }
+            </div>
+          }
+        </div>
+        @if (inv.lifecycle !== 'void') {
+          <button type="button" class="btn" [class.btn-primary]="inv.lifecycle === 'draft' || inv.balance <= 0" (click)="openSend('email')"><i class="ti ti-send" aria-hidden="true"></i>Send</button>
+        }
+        @if (inv.lifecycle === 'sent' && inv.balance > 0) {
+          <a class="btn btn-primary" routerLink="/payments/new" [queryParams]="{ customerId: inv.customerId, invoiceId: inv.id }">
+            <i class="ti ti-cash" aria-hidden="true"></i>Record payment
+          </a>
+        }
+      </div>
+    </div>
+
+    @if (inv.lifecycle === 'draft') {
+      <div class="alert alert-info no-print" role="status">
+        <span>This is a draft. Send it by email or WhatsApp and it's marked as sent automatically, so it counts toward what you're owed.</span>
+      </div>
+    }
+
+    <app-doc-view [doc]="print()!" />
+
+    <div class="detail-grid no-print">
+      <div class="card">
+        <div class="card-head"><h2>Payments</h2>
+          @if (inv.lifecycle === 'sent' && inv.balance > 0) {
+            <a routerLink="/payments/new" [queryParams]="{ customerId: inv.customerId, invoiceId: inv.id }">Record a payment</a>
+          }
+        </div>
+        @if (!inv.payments?.length && !inv.credits?.length) {
+          <p class="empty-inline">No payments against this invoice yet.</p>
+        } @else {
+          <ul class="rows">
+            @for (p of inv.payments; track p.paymentId) {
+              <li><a [routerLink]="['/payments', p.paymentId]">
+                <span class="row-main"><strong>{{ p.paymentNumber }}</strong> <span class="muted">{{ modeLabel[p.mode] }}, {{ p.paymentDate | date: 'd MMM y' }}</span></span>
+                <span class="num text-success">{{ p.amount | currency }}</span>
+              </a></li>
+            }
+            @for (c of inv.credits; track c.allocationId) {
+              <li><a [routerLink]="['/credit-notes', c.creditNoteId]">
+                <span class="row-main"><strong>{{ c.number }}</strong> <span class="muted">Credit note, {{ c.appliedOn | date: 'd MMM y' }}</span></span>
+                <span class="num text-success">{{ c.amount | currency }}</span>
+              </a></li>
+            }
+          </ul>
+        }
+        @if (inv.related?.length) {
+          <h3 class="subhead">Related</h3>
+          <ul class="rows">
+            @for (r of inv.related; track r.id) {
+              <li><a [routerLink]="docLink(r.type, r.id)">
+                <span class="row-main"><strong>{{ r.number }}</strong> <span class="muted">{{ docLabel(r.type) }} · {{ docStatus[r.status]?.label ?? r.status }}</span></span>
+                <span class="num">{{ r.total | currency }}</span>
+              </a></li>
+            }
+          </ul>
+        }
+      </div>
+      <app-activity-list [entries]="inv.activity ?? []" />
+    </div>
+  }
+</section>
+
+@if (sendCtx()) {
+  <app-send-dialog [ctx]="sendCtx()!" [startTab]="sendTab()" (sent)="onSent($event)" (closed)="sendCtx.set(null)" />
+}

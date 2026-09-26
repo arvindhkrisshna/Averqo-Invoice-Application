@@ -1,0 +1,15 @@
+# Angular
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Go
+backend/invoice-api
+backend/backend
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+
+# Secrets for docker-compose.prod.yml
+.env
