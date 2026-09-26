@@ -93,8 +93,7 @@ kbd {
 .brand { display: flex; align-items: center; gap: 0.6rem; padding: 0.35rem 0.6rem 1.1rem; color: var(--white); }
 .brand:hover { text-decoration: none; }
 .brand-mark {
-  width: 30px; height: 30px; border-radius: 8px; background: var(--blue);
-  display: grid; place-items: center; font-weight: 800; font-size: 1.1rem; color: var(--white);
+  width: 20px; height: 20px; flex: 0 0 0px; object-fit: contain;
 }
 .brand-name { font-weight: 800; font-size: 1.2rem; letter-spacing: -0.02em; }
 
@@ -675,6 +674,7 @@ input[type='radio'], input[type='checkbox'] { width: auto; min-height: 0; accent
 
 /* Sign-in pages */
 .auth-main { min-height: 100vh; display: grid; place-items: center; padding: 1.5rem; background: linear-gradient(160deg, var(--navy) 0%, var(--navy-2) 55%, #24407a 100%); }
+.auth-main > router-outlet { display: contents; }
 .auth-card { width: min(420px, 100%); padding: 2rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .auth-card form { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 0.5rem; }
 .auth-card h1 { margin: 0.25rem 0 0; font-size: 1.5rem; }

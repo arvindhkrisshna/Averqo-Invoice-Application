@@ -9,7 +9,7 @@ import { Auth } from '../../core/auth';
   imports: [ReactiveFormsModule],
   template: `
     <div class="auth-card card">
-      <div class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><span class="brand-name">Averqo</span></div>
+      <div class="auth-brand"><img class="brand-mark" src="assets/averqo.png" alt="" /><span class="brand-name">Averqo</span></div>
       <h1>Create the owner account</h1>
       <p class="muted">This is a one-time step. The owner can add team members later and is the only one who can change business settings.</p>
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>

@@ -9,7 +9,7 @@ import { Auth } from '../../core/auth';
   imports: [ReactiveFormsModule],
   template: `
     <div class="auth-card card">
-      <div class="auth-brand"><span class="brand-mark" aria-hidden="true">A</span><span class="brand-name">Averqo</span></div>
+      <div class="auth-brand"><img class="brand-mark" src="assets/averqo.png" alt="" /><span class="brand-name">Averqo</span></div>
       <h1>Sign in</h1>
       <p class="muted">Welcome back. Sign in to your business account.</p>
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
