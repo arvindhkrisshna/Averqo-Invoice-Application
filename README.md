@@ -2,8 +2,7 @@
 
 GST invoicing, expenses, time tracking, GST returns, and reports for small
 businesses in India. Built with **Angular** (website), **Go** (server), and
-**MySQL** (database). It runs free in a **GitHub Codespace** for building and
-trying it out, and on any server with Docker for real use.
+**MySQL** (database).
 
 One Averqo installation holds one business, with as many team members as you
 like.
