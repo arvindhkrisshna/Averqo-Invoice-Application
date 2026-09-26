@@ -273,9 +273,3 @@ Codespace deletes its database, so keep backups of anything important.
 - **Build errors, or port 8080 shows an old version**: make sure you ran the
   `rm -rf frontend/src frontend/dist backend` step, then `npm run build` again
   if you use production mode.
-
-## Free tier
-
-GitHub Free includes 120 core-hours a month of Codespaces (60 hours on the
-default 2-core machine) and 15 GB of storage. Stop the codespace when you're
-done (Codespaces menu, then **Stop Current Codespace**).
